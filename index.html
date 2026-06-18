@@ -477,11 +477,11 @@
 
 <script>
   const STORAGE_KEY = 'todo_tasks';
-  const SCRIPT_KEY  = 'apps_script_url';
+  const SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbyBnuE2pGPGUL2z05Dtc9xyFcQgU2Yog8LRhDQ1d89HPGM1IAXiab6V1TZK9lbIEdFK/exec';
 
   let tasks = [];
   let currentFilter = 'all';
-  let scriptUrl = localStorage.getItem(SCRIPT_KEY) || '';
+  let scriptUrl = SCRIPT_URL;
 
   /* ---------- Init ---------- */
   function init() {
@@ -497,15 +497,8 @@
   }
 
   function checkConfig() {
-    const banner = document.getElementById('config-banner');
-    const status = document.getElementById('sync-status');
-    if (scriptUrl) {
-      banner.classList.add('hidden');
-      status.textContent = 'เชื่อมต่อ Google Sheets แล้ว';
-    } else {
-      banner.classList.remove('hidden');
-      status.textContent = 'ยังไม่ได้ตั้งค่า Google Sheets';
-    }
+    document.getElementById('config-banner').classList.add('hidden');
+    document.getElementById('sync-status').textContent = 'เชื่อมต่อ Google Sheets แล้ว';
   }
 
   /* ---------- Save ---------- */
@@ -675,16 +668,8 @@
     document.getElementById('config-modal').classList.remove('open');
   }
   function saveConfig() {
-    const url = document.getElementById('script-url-input').value.trim();
-    if (!url.startsWith('https://script.google.com')) {
-      showToast('URL ไม่ถูกต้อง', 'error'); return;
-    }
-    scriptUrl = url;
-    localStorage.setItem(SCRIPT_KEY, url);
-    checkConfig();
     closeConfig();
-    showToast('บันทึก URL สำเร็จ!', 'success');
-    syncNow();
+    showToast('URL ถูก fixed ไว้แล้วในโค้ด', 'info');
   }
 
   /* ---------- Google Apps Script API ---------- */
