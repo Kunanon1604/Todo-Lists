@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Todo List — Google Sheets</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f7f6f3;
+      --surface: #ffffff;
+      --surface2: #f1efea;
+      --border: rgba(0,0,0,0.1);
+      --border-strong: rgba(0,0,0,0.2);
+      --text: #1a1a1a;
+      --text2: #6b6b6b;
+      --text3: #a0a0a0;
+      --accent: #4f46e5;
+      --accent-light: #eef2ff;
+      --accent-hover: #4338ca;
+      --danger: #e24b4a;
+      --danger-light: #fef2f2;
+      --success: #16a34a;
+      --success-light: #f0fdf4;
+      --warning: #d97706;
+      --warning-light: #fffbeb;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111110;
+        --surface: #1c1c1b;
+        --surface2: #252524;
+        --border: rgba(255,255,255,0.1);
+        --border-strong: rgba(255,255,255,0.2);
+        --text: #f0ede8;
+        --text2: #9e9b96;
+        --text3: #5e5c58;
+        --accent: #6366f1;
+        --accent-light: #1e1b4b;
+        --accent-hover: #818cf8;
+        --danger: #f87171;
+        --danger-light: #1f1213;
+        --success: #4ade80;
+        --success-light: #052e16;
+        --warning: #fbbf24;
+        --warning-light: #1c1407;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 680px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .header-left h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .header-left p {
+      font-size: 0.8rem;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+    .sync-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--surface);
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sync-btn:hover { background: var(--surface2); color: var(--text); }
+    .sync-btn svg { width: 14px; height: 14px; }
+    .sync-btn.syncing svg { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Config Banner */
+    .config-banner {
+      background: var(--warning-light);
+      border: 0.5px solid var(--warning);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.82rem;
+      color: var(--warning);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .config-banner.hidden { display: none; }
+    .config-banner a { color: var(--warning); font-weight: 500; }
+    .config-banner svg { flex-shrink: 0; width: 16px; height: 16px; }
+
+    /* Add Task Card */
+    .add-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .add-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 0.75rem;
+    }
+    .add-row input[type="text"] {
+      flex: 1;
+      padding: 9px 12px;
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .add-row input:focus { border-color: var(--accent); }
+    .add-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .add-meta input[type="date"],
+    .add-meta select {
+      padding: 7px 10px;
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+      cursor: pointer;
+    }
+    .add-meta input:focus, .add-meta select:focus { border-color: var(--accent); }
+    .btn-add {
+      padding: 8px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-add:hover { background: var(--accent-hover); }
+    .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar input[type="search"] {
+      flex: 1;
+      min-width: 160px;
+      padding: 7px 12px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+    }
+    .filter-bar input:focus { border-color: var(--accent); }
+    .filter-pills { display: flex; gap: 4px; }
+    .pill {
+      padding: 5px 12px;
+      border: 0.5px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      font-size: 0.78rem;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pill:hover { border-color: var(--accent); color: var(--accent); }
+    .pill.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+    /* Task List */
+    .task-list { display: flex; flex-direction: column; gap: 6px; }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text3);
+      font-size: 0.85rem;
+    }
+    .empty-state svg { width: 36px; height: 36px; margin: 0 auto 0.75rem; opacity: 0.4; display: block; }
+
+    /* Task Item */
+    .task-item {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: all 0.15s;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .task-item:hover { border-color: var(--border-strong); }
+    .task-item.done { opacity: 0.55; }
+    .task-item.done .task-title { text-decoration: line-through; color: var(--text3); }
+
+    .task-check {
+      width: 18px;
+      height: 18px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      background: var(--surface);
+    }
+    .task-check:hover { border-color: var(--accent); }
+    .task-item.done .task-check {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    .task-check svg { display: none; width: 10px; height: 10px; color: white; }
+    .task-item.done .task-check svg { display: block; }
+
+    .task-body { flex: 1; min-width: 0; }
+    .task-title { font-size: 0.9rem; font-weight: 400; word-break: break-word; }
+    .task-meta { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .tag-priority-high { background: var(--danger-light); color: var(--danger); }
+    .tag-priority-medium { background: var(--warning-light); color: var(--warning); }
+    .tag-priority-low { background: var(--success-light); color: var(--success); }
+    .tag-date { background: var(--surface2); color: var(--text2); }
+    .tag-overdue { background: var(--danger-light); color: var(--danger); }
+
+    .task-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .task-item:hover .task-actions { opacity: 1; }
+    .btn-icon {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--text3);
+      transition: all 0.15s;
+    }
+    .btn-icon:hover { background: var(--surface2); color: var(--danger); }
+    .btn-icon svg { width: 15px; height: 15px; }
+
+    /* Stats Row */
+    .stats-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 1rem;
+    }
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.78rem;
+      color: var(--text2);
+    }
+    .stat-chip strong { color: var(--text); font-weight: 500; }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 999;
+    }
+    .toast {
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #fff;
+      box-shadow: var(--shadow-md);
+      animation: slideIn 0.2s ease;
+    }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    .toast.info { background: var(--accent); }
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* Script Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: var(--shadow-md);
+    }
+    .modal h2 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .modal p { font-size: 0.82rem; color: var(--text2); margin-bottom: 1rem; line-height: 1.5; }
+    .modal input[type="text"] {
+      width: 100%;
+      padding: 9px 12px;
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+      margin-bottom: 0.75rem;
+    }
+    .modal input:focus { border-color: var(--accent); }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-secondary {
+      padding: 8px 16px;
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.83rem;
+      cursor: pointer;
+    }
+    .btn-primary {
+      padding: 8px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.83rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    @media (max-width: 480px) {
+      .add-meta { grid-template-columns: 1fr 1fr; }
+      .btn-add { grid-column: span 2; }
+      .stats-row { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>📋 Todo List</h1>
+      <p id="sync-status">ยังไม่ได้ตั้งค่า Google Sheets</p>
+    </div>
+    <button class="sync-btn" id="sync-btn" onclick="syncNow()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg>
+      ซิงค์ Sheets
+    </button>
+  </div>
+
+  <!-- Config Banner -->
+  <div class="config-banner" id="config-banner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    <span>ยังไม่ได้ตั้งค่า Google Apps Script URL — <a href="#" onclick="openConfig()">คลิกตั้งค่าตอนนี้</a> หรืออ่าน README.md</span>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row" id="stats-row"></div>
+
+  <!-- Add Task -->
+  <div class="add-card">
+    <div class="add-row">
+      <input type="text" id="task-input" placeholder="เพิ่ม task ใหม่..." maxlength="200" />
+    </div>
+    <div class="add-meta">
+      <input type="date" id="task-date" title="Due date" />
+      <select id="task-priority">
+        <option value="medium">🟡 Medium</option>
+        <option value="high">🔴 High</option>
+        <option value="low">🟢 Low</option>
+      </select>
+      <button class="btn-add" id="add-btn" onclick="addTask()">+ เพิ่ม</button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <input type="search" id="search-input" placeholder="🔍 ค้นหา task..." oninput="renderTasks()" />
+    <div class="filter-pills">
+      <button class="pill active" onclick="setFilter('all')" id="pill-all">ทั้งหมด</button>
+      <button class="pill" onclick="setFilter('active')" id="pill-active">รอทำ</button>
+      <button class="pill" onclick="setFilter('done')" id="pill-done">เสร็จแล้ว</button>
+    </div>
+  </div>
+
+  <!-- Task List -->
+  <div class="task-list" id="task-list"></div>
+
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Config Modal -->
+<div class="modal-overlay" id="config-modal">
+  <div class="modal">
+    <h2>⚙️ ตั้งค่า Google Apps Script</h2>
+    <p>วาง URL ของ Google Apps Script Web App ที่ Deploy แล้ว (ดูขั้นตอนใน README.md)</p>
+    <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/AKfy.../exec" />
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeConfig()">ยกเลิก</button>
+      <button class="btn-primary" onclick="saveConfig()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'todo_tasks';
+  const SCRIPT_KEY  = 'apps_script_url';
+
+  let tasks = [];
+  let currentFilter = 'all';
+  let scriptUrl = localStorage.getItem(SCRIPT_KEY) || '';
+
+  /* ---------- Init ---------- */
+  function init() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    tasks = saved ? JSON.parse(saved) : [];
+    checkConfig();
+    renderTasks();
+    renderStats();
+
+    document.getElementById('task-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addTask();
+    });
+  }
+
+  function checkConfig() {
+    const banner = document.getElementById('config-banner');
+    const status = document.getElementById('sync-status');
+    if (scriptUrl) {
+      banner.classList.add('hidden');
+      status.textContent = 'เชื่อมต่อ Google Sheets แล้ว';
+    } else {
+      banner.classList.remove('hidden');
+      status.textContent = 'ยังไม่ได้ตั้งค่า Google Sheets';
+    }
+  }
+
+  /* ---------- Save ---------- */
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  }
+
+  /* ---------- Add Task ---------- */
+  function addTask() {
+    const input = document.getElementById('task-input');
+    const title = input.value.trim();
+    if (!title) { showToast('กรุณาพิมพ์ชื่อ task', 'error'); return; }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true;
+
+    const task = {
+      id: Date.now().toString(),
+      title,
+      done: false,
+      priority: document.getElementById('task-priority').value,
+      dueDate: document.getElementById('task-date').value,
+      createdAt: new Date().toISOString(),
+    };
+
+    tasks.unshift(task);
+    save();
+    renderTasks();
+    renderStats();
+
+    input.value = '';
+    document.getElementById('task-date').value = '';
+    document.getElementById('task-priority').value = 'medium';
+    btn.disabled = false;
+
+    if (scriptUrl) pushToSheet([task]);
+    else showToast('เพิ่ม task แล้ว (ยังไม่มี Sheets)', 'info');
+  }
+
+  /* ---------- Toggle Done ---------- */
+  function toggleDone(id) {
+    const t = tasks.find(t => t.id === id);
+    if (!t) return;
+    t.done = !t.done;
+    save();
+    renderTasks();
+    renderStats();
+    if (scriptUrl) updateSheetRow(t);
+  }
+
+  /* ---------- Delete ---------- */
+  function deleteTask(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    save();
+    renderTasks();
+    renderStats();
+    showToast('ลบ task แล้ว', 'info');
+    if (scriptUrl) deleteSheetRow(id);
+  }
+
+  /* ---------- Filter ---------- */
+  function setFilter(f) {
+    currentFilter = f;
+    ['all','active','done'].forEach(k => {
+      document.getElementById('pill-'+k).classList.toggle('active', k === f);
+    });
+    renderTasks();
+  }
+
+  /* ---------- Render Tasks ---------- */
+  function renderTasks() {
+    const search = document.getElementById('search-input').value.toLowerCase();
+    let list = tasks.filter(t => {
+      if (currentFilter === 'active' && t.done) return false;
+      if (currentFilter === 'done' && !t.done) return false;
+      if (search && !t.title.toLowerCase().includes(search)) return false;
+      return true;
+    });
+
+    const container = document.getElementById('task-list');
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          ${search ? 'ไม่พบ task ที่ค้นหา' : 'ยังไม่มี task — เพิ่มตอนนี้เลย!'}
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = list.map(t => taskHTML(t)).join('');
+  }
+
+  function taskHTML(t) {
+    const today = new Date().toISOString().split('T')[0];
+    const isOverdue = t.dueDate && t.dueDate < today && !t.done;
+    const priorityLabel = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' }[t.priority] || '';
+    const priorityClass = `tag-priority-${t.priority}`;
+
+    let dateBadge = '';
+    if (t.dueDate) {
+      if (isOverdue) {
+        dateBadge = `<span class="tag tag-overdue">⚠️ เกินกำหนด ${t.dueDate}</span>`;
+      } else {
+        dateBadge = `<span class="tag tag-date">📅 ${t.dueDate}</span>`;
+      }
+    }
+
+    return `
+      <div class="task-item${t.done?' done':''}" id="task-${t.id}">
+        <div class="task-check" onclick="toggleDone('${t.id}')" title="${t.done?'ยกเลิกเสร็จ':'ทำเสร็จแล้ว'}">
+          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M2 6l3 3 5-5"/>
+          </svg>
+        </div>
+        <div class="task-body">
+          <div class="task-title">${escHTML(t.title)}</div>
+          <div class="task-meta">
+            <span class="tag ${priorityClass}">${priorityLabel}</span>
+            ${dateBadge}
+          </div>
+        </div>
+        <div class="task-actions">
+          <button class="btn-icon" onclick="deleteTask('${t.id}')" title="ลบ task">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>`;
+  }
+
+  /* ---------- Stats ---------- */
+  function renderStats() {
+    const total = tasks.length;
+    const done = tasks.filter(t => t.done).length;
+    const high = tasks.filter(t => t.priority === 'high' && !t.done).length;
+    const today = new Date().toISOString().split('T')[0];
+    const overdue = tasks.filter(t => t.dueDate && t.dueDate < today && !t.done).length;
+
+    document.getElementById('stats-row').innerHTML = `
+      <div class="stat-chip"><strong>${total}</strong> tasks</div>
+      <div class="stat-chip"><strong>${done}</strong> เสร็จ</div>
+      <div class="stat-chip"><strong>${total - done}</strong> รอทำ</div>
+      ${high > 0 ? `<div class="stat-chip" style="color:var(--danger)"><strong>${high}</strong> สำคัญ</div>` : ''}
+      ${overdue > 0 ? `<div class="stat-chip" style="color:var(--danger)"><strong>${overdue}</strong> เกินกำหนด</div>` : ''}
+    `;
+  }
+
+  /* ---------- Toast ---------- */
+  function showToast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+
+  /* ---------- Config Modal ---------- */
+  function openConfig() {
+    document.getElementById('script-url-input').value = scriptUrl;
+    document.getElementById('config-modal').classList.add('open');
+  }
+  function closeConfig() {
+    document.getElementById('config-modal').classList.remove('open');
+  }
+  function saveConfig() {
+    const url = document.getElementById('script-url-input').value.trim();
+    if (!url.startsWith('https://script.google.com')) {
+      showToast('URL ไม่ถูกต้อง', 'error'); return;
+    }
+    scriptUrl = url;
+    localStorage.setItem(SCRIPT_KEY, url);
+    checkConfig();
+    closeConfig();
+    showToast('บันทึก URL สำเร็จ!', 'success');
+    syncNow();
+  }
+
+  /* ---------- Google Apps Script API ---------- */
+  async function pushToSheet(newTasks) {
+    if (!scriptUrl) return;
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', tasks: newTasks }),
+      });
+      showToast('บันทึกลง Google Sheets แล้ว ✓', 'success');
+    } catch (e) {
+      showToast('บันทึก Sheets ไม่ได้ — ตรวจสอบ URL', 'error');
+    }
+  }
+
+  async function updateSheetRow(task) {
+    if (!scriptUrl) return;
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update', task }),
+      });
+    } catch (e) { /* silent */ }
+  }
+
+  async function deleteSheetRow(id) {
+    if (!scriptUrl) return;
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+    } catch (e) { /* silent */ }
+  }
+
+  async function syncNow() {
+    if (!scriptUrl) { openConfig(); return; }
+    const btn = document.getElementById('sync-btn');
+    btn.classList.add('syncing');
+    document.getElementById('sync-status').textContent = 'กำลังซิงค์...';
+    try {
+      const res = await fetch(`${scriptUrl}?action=getAll`);
+      const data = await res.json();
+      if (data.tasks) {
+        tasks = data.tasks;
+        save();
+        renderTasks();
+        renderStats();
+        showToast(`ซิงค์สำเร็จ — ${tasks.length} tasks`, 'success');
+        document.getElementById('sync-status').textContent = 'ซิงค์ล่าสุด: ' + new Date().toLocaleTimeString('th-TH');
+      }
+    } catch (e) {
+      showToast('ซิงค์ไม่ได้ — ตรวจสอบ Script URL', 'error');
+      document.getElementById('sync-status').textContent = 'ซิงค์ล้มเหลว';
+    }
+    btn.classList.remove('syncing');
+  }
+
+  /* ---------- Utils ---------- */
+  function escHTML(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  init();
+</script>
+</body>
+</html>
